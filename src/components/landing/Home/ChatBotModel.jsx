@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send, Bot, Mic, MicOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import ChatMessage from "./ChatMessages";
 
 const ChatBot = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([
     {
       id: "1",
@@ -27,9 +29,15 @@ const ChatBot = ({ isOpen, onClose }) => {
 
   const formatBotResponse = (data) => {
     let responseText = "";
+    let departmentLink = "";
     
     if (!data.predictions) {
-      responseText = "I need more information about your symptoms. Could you please describe more symptoms?";
+      // Check if the session language is Arabic
+      if (data.session_language === "ar") {
+        responseText = "أحتاج إلى مزيد من المعلومات حول أعراضك. هل يمكنك وصف المزيد من الأعراض؟";
+      } else {
+        responseText = "I need more information about your symptoms. Could you please describe more symptoms?";
+      }
     } else {
       // Get all predictions
       const predictions = data.predictions;
@@ -56,6 +64,10 @@ const ChatBot = ({ isOpen, onClose }) => {
         recommendedDepartment = predictions[0].department;
       }
 
+      // Create department link using English department name
+      const departmentParam = predictions[0].department_en.toLowerCase().replace(/\s+/g, '-');
+      departmentLink = `/reservation?dep=${departmentParam}`;
+
       // Check if the response is in Arabic
       const isArabic = /[\u0600-\u06FF]/.test(predictions[0].disease);
       
@@ -64,17 +76,19 @@ const ChatBot = ({ isOpen, onClose }) => {
         predictions.forEach((pred, index) => {
           responseText += `${index + 1}. ${pred.disease}\n`;
         });
-        responseText += `\nبناءً على تحليل الأعراض، نوصي بزيارة قسم: ${recommendedDepartment}`;
+        responseText += `\nبناءً على تحليل الأعراض، نوصي بزيارة قسم: ${recommendedDepartment}\n\n`;
+        responseText += `[احجز موعدك الآن](${departmentLink})`;
       } else {
         responseText = "Possible conditions:\n";
         predictions.forEach((pred, index) => {
           responseText += `${index + 1}. ${pred.disease}\n`;
         });
-        responseText += `\nBased on symptom analysis, we recommend visiting the: ${recommendedDepartment} department`;
+        responseText += `\nBased on symptom analysis, we recommend visiting the: ${recommendedDepartment} department\n\n`;
+        responseText += `[Book an appointment now](${departmentLink})`;
       }
     }
     
-    return responseText;
+    return { text: responseText, link: departmentLink };
   };
 
   const handleSendMessage = async () => {
@@ -106,9 +120,11 @@ const ChatBot = ({ isOpen, onClose }) => {
 
       const data = await response.json();
       
+      const formattedResponse = formatBotResponse(data);
       const botResponse = {
         id: (Date.now() + 1).toString(),
-        text: formatBotResponse(data),
+        text: formattedResponse.text,
+        link: formattedResponse.link,
         isBot: true,
         timestamp: new Date(),
       };
@@ -182,9 +198,11 @@ const ChatBot = ({ isOpen, onClose }) => {
 
       const data = await response.json();
       
+      const formattedResponse = formatBotResponse(data);
       const botResponse = {
         id: (Date.now() + 1).toString(),
-        text: formatBotResponse(data),
+        text: formattedResponse.text,
+        link: formattedResponse.link,
         isBot: true,
         timestamp: new Date(),
       };

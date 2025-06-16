@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -33,6 +33,7 @@ import { createReservation, resetReservationState } from '../../redux/slices/res
 function Reservation() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { loading, error, success } = useSelector((state) => state.reservation);
   const [formData, setFormData] = useState({
     name: '',
@@ -63,14 +64,32 @@ function Reservation() {
         setLoadingDoctors(false);
       })
       .catch(() => setLoadingDoctors(false));
+
     // Fetch specializations
     Api.get('/spatialization/all/1')
       .then(res => {
-        setSpecializations(res.data?.data || res.data || []);
+        const specs = res.data?.data || res.data || [];
+        setSpecializations(specs);
         setLoadingSpecializations(false);
+
+        // Handle department parameter from URL
+        const departmentParam = searchParams.get('dep');
+        if (departmentParam) {
+          // Find matching specialization
+          const matchingSpec = specs.find(spec => 
+            spec.name.toLowerCase().replace(/\s+/g, '-') === departmentParam.toLowerCase()
+          );
+          
+          if (matchingSpec) {
+            setFormData(prev => ({
+              ...prev,
+              specializationId: matchingSpec.id
+            }));
+          }
+        }
       })
       .catch(() => setLoadingSpecializations(false));
-  }, [dispatch]);
+  }, [dispatch, searchParams]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
